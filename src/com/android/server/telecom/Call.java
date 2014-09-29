@@ -645,6 +645,17 @@ final class Call implements CreateConnectionResponse {
     }
 
     /**
+     * @return the duration of the call.
+     */
+    long getDurationMillis() {
+        if (mConnectTimeMillis != 0) {
+            return System.currentTimeMillis() - mConnectTimeMillis;
+        } else {
+            return 0;
+        }
+    }
+
+    /**
      * @return The time when this call object was created and added to the set of pending outgoing
      *     calls.
      */
