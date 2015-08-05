@@ -39,6 +39,10 @@
     <!-- Flag indicating if the tty is enabled -->
     <bool name="tty_enabled">false</bool>
 
+    <!-- Component name for the notification handler. The presence of this value will disable
+         MissedCallNotifierImpl's presentation of missed call/voice notifications [DO NOT TRANSLATE] -->
+    <string name="notification_component" translatable="false"></string>
+
     <!-- DTMF key to be used for LCH hold tone -->
     <string name="lch_dtmf_key" translatable="false">D</string>
 

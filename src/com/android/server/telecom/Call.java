@@ -688,6 +688,10 @@ public class Call implements CreateConnectionResponse {
             return mCallerInfo.phoneNumber;
         }
         return mHandle == null ? null : mHandle.getSchemeSpecificPart();
+	}
+
+    public String getPhoneNumber() {
+        return mCallerInfo == null ? null : mCallerInfo.phoneNumber;
     }
     
     public Bitmap getPhotoIcon() {
