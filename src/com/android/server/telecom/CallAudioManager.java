@@ -580,9 +580,7 @@ final class CallAudioManager extends CallsManagerListenerBase
             } else if (!hasRingingForegroundCall() && mCallsManager.hasOnlyDisconnectedCalls()) {
                 Log.v(this, "updateAudioStreamAndMode : no ringing call");
                 // Request to set audio mode normal. Here confirm if any call exist.
-                if (!hasAnyCalls()) {
-                    abandonAudioFocus();
-                }
+                    abandonAudioFocus();              
             } else {
                 // mIsRinging is false, but there is a foreground ringing call present. Don't
                 // abandon audio focus immediately to prevent audio focus from getting lost between

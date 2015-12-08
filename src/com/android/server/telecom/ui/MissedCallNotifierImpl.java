@@ -26,6 +26,7 @@ import com.android.server.telecom.CallsManagerListenerBase;
 import com.android.server.telecom.Constants;
 import com.android.server.telecom.ContactsAsyncHelper;
 import com.android.server.telecom.Log;
+import com.android.server.telecom.MissedCallInfo;
 import com.android.server.telecom.MissedCallNotifier;
 import com.android.server.telecom.R;
 import com.android.server.telecom.TelecomBroadcastIntentProcessor;
@@ -432,7 +433,7 @@ public class MissedCallNotifierImpl extends CallsManagerListenerBase implements 
                 PhoneAccount.SCHEME_TEL.equals(call.getHandle().getScheme());
     }
 
-    private boolean canRespondViaSms(Call call) {
+    private boolean canRespondViaSms(MissedCallInfo call) {
         // Only allow respond-via-sms for "tel:" calls.
         return call.getHandle() != null &&
                 PhoneAccount.SCHEME_TEL.equals(call.getHandle().getScheme());
