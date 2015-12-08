@@ -432,6 +432,12 @@ public class MissedCallNotifierImpl extends CallsManagerListenerBase implements 
                 PhoneAccount.SCHEME_TEL.equals(call.getHandle().getScheme());
     }
 
+    private boolean canRespondViaSms(Call call) {
+        // Only allow respond-via-sms for "tel:" calls.
+        return call.getHandle() != null &&
+                PhoneAccount.SCHEME_TEL.equals(call.getHandle().getScheme());
+    }
+
     /**
      * Adds the missed call notification on startup if there are unread missed calls.
      */

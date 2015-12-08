@@ -775,10 +775,6 @@ final class CallAudioManager extends CallsManagerListenerBase
         return UserHandle.USER_OWNER;
     }
 
-    private boolean hasAnyCalls() {
-        return mCallsManager.hasAnyCalls();
-    }
-
     /**
      * Translates an {@link AudioManager} stream type to a human-readable string description.
      *
