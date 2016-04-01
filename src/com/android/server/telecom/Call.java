@@ -679,10 +679,6 @@ public class Call implements CreateConnectionResponse {
         return mCallerInfo == null ? null : mCallerInfo.name;
     }
 
-    public String getPhoneNumber() {
-        return mCallerInfo == null ? null : mCallerInfo.phoneNumber;
-    }
-
     public String getNumber() {
         if (mCallerInfo != null) {
             return mCallerInfo.phoneNumber;
