@@ -32,9 +32,11 @@ package com.android.server.telecom.ui;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -55,6 +57,7 @@ import android.telecom.VideoProfile;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 
+import com.android.ims.ImsManager;
 import com.android.internal.telephony.TelephonyProperties;
 import com.android.server.telecom.Call;
 import com.android.server.telecom.CallState;
@@ -115,6 +118,8 @@ public class ViceNotificationImpl extends CallsManagerListenerBase {
     // HashMap that holds Dialog Number & Notification Id used to display on the statusbar
     private Map<String,Integer> mNotification = new HashMap<String,Integer>();
 
+    private ImsIntentReceiver mImsIntentReceiver = null;
+
     private static final String IMS_SERVICE_PKG_NAME = "org.codeaurora.ims";
 
     public ViceNotificationImpl(Context context, CallsManager callsManager) {
@@ -122,7 +127,10 @@ public class ViceNotificationImpl extends CallsManagerListenerBase {
         mNotificationManager =
                 (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
         Log.i(this,"ViceNotificationImpl");
-        bindImsService();
+        if (!bindImsService()) {
+            //Register for IMS ready intent to re try bind
+            registerImsReceiver();
+        }
     }
 
     private class MyHandler extends Handler {
@@ -153,14 +161,25 @@ public class ViceNotificationImpl extends CallsManagerListenerBase {
         }
     }
 
+    private class ImsIntentReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.i("ViceNotificationImpl", "mImsIntentReceiver: action " + intent.getAction());
+            if (ImsManager.ACTION_IMS_SERVICE_UP.equals(intent.getAction())) {
+                if (bindImsService()) {
+                    unregisterImsReceiver();
+                }
+            }
+        }
+    }
+
     // Clear the existing notifications on statusbar and
     // Hashmap whenever new Vice Notification is received
     private void resetBeforeProcess() {
-        mNotificationManager.cancelAll();
-        mNotification.clear();
         mBuilder = null;
         mPublicNotificationBuilder = null;
         mWasInCall = false;
+        checkAndUpdateNotification();
     }
 
     /* Service connection bound to IQtiImsInterface */
@@ -168,6 +187,7 @@ public class ViceNotificationImpl extends CallsManagerListenerBase {
 
         /* Below API gets invoked when connection to ImsService is established */
         public void onServiceConnected(ComponentName className, IBinder service) {
+            Log.i("ViceNotificationImpl", "onServiceConnected");
             /* Retrieve the IQtiImsInterface */
             mQtiImsInterface = IQtiImsInterface.Stub.asInterface(service);
 
@@ -184,6 +204,7 @@ public class ViceNotificationImpl extends CallsManagerListenerBase {
 
         /* Below API gets invoked when connection to ImsService is disconnected */
         public void onServiceDisconnected(ComponentName className) {
+            Log.i("ViceNotificationImpl", "onServiceDisconnected");
         }
     };
 
@@ -228,11 +249,15 @@ public class ViceNotificationImpl extends CallsManagerListenerBase {
      * Returns true if bound sucessfully, false otherwise.
      */
     public boolean bindImsService() {
+        if (!ImsManager.getInstance(mContext, 0).isServiceAvailable()) {
+            Log.d(this, "bindImsService: IMS service is not available!");
+            return false;
+        }
         Intent intent = new Intent(IQtiImsInterface.class.getName());
         intent.setPackage(IMS_SERVICE_PKG_NAME);
         mImsServiceBound = mContext.bindService(intent,
                                    mConnection,
-                                   Context.BIND_AUTO_CREATE);
+                                   0);
         Log.d(this, "Getting IQtiImsInterface : " + (mImsServiceBound?"yes":"failed"));
         return mImsServiceBound;
     }
@@ -297,7 +322,6 @@ public class ViceNotificationImpl extends CallsManagerListenerBase {
                         + ", notifId = " + notifId);
 
                 resetBuilders();
-                checkAndUpdateNotification(callInfo, false);
                 Log.i(this, "processNotification isInCall = " + getTelecomManager().isInCall());
                 isVt = isVtCall(callInfo[QtiViceInfo.INDEX_CALLTYPE]);
 
@@ -323,7 +347,6 @@ public class ViceNotificationImpl extends CallsManagerListenerBase {
             }
         } else {
             Log.i(this, "processNotification DEP null");
-            resetBeforeProcess();
         }
     }
 
@@ -367,12 +390,12 @@ public class ViceNotificationImpl extends CallsManagerListenerBase {
     }
 
     /**
-     * API updates the hashmap in following order :
-     * - if new call : create new entry
-     * - if existing call : cancel existing notification and remove it from hashmap
-     *                      It will get added to hashmap in showNotification()
+     * Retrieve all notifications from the map.
+     * Cancel and remove all notifications from the map.
+     * CancelAll not used as it is an asynchronous call and can cause issue with
+     * back to back notifications.
      */
-    private void checkAndUpdateNotification(String[] callInfo, boolean clear) {
+    private void checkAndUpdateNotification() {
         Set<Map.Entry<String, Integer>> call = mNotification.entrySet();
         if ((call == null) || (mNotification.isEmpty())) {
             return;
@@ -383,10 +406,8 @@ public class ViceNotificationImpl extends CallsManagerListenerBase {
             Map.Entry<String, Integer> entry = iterator.next();
             String dialog = entry.getKey();
             Integer notifId = entry.getValue();
-            if (dialog.equalsIgnoreCase(callInfo[QtiViceInfo.INDEX_DIALOG_ID])) {
-                mNotificationManager.cancel(notifId);
-                call.remove(dialog);
-            }
+            mNotificationManager.cancel(notifId);
+            iterator.remove();
         }
     }
 
@@ -525,6 +546,20 @@ public class ViceNotificationImpl extends CallsManagerListenerBase {
             Log.i(this, "onCallStateChanged newState = " + newState);
             backupInfoToProcessLater();
             mHandler.sendEmptyMessage(MyHandler.MESSAGE_CALL_ENDED);
+        }
+    }
+
+    private void registerImsReceiver() {
+        mImsIntentReceiver = new ImsIntentReceiver();
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(ImsManager.ACTION_IMS_SERVICE_UP);
+        mContext.registerReceiver(mImsIntentReceiver, filter);
+    }
+
+    private void unregisterImsReceiver() {
+        if (mImsIntentReceiver != null) {
+            mContext.unregisterReceiver(mImsIntentReceiver);
+            mImsIntentReceiver = null;
         }
     }
 }
